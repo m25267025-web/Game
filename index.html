@@ -3,215 +3,283 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pixel Dungeon</title>
+    <title>UnderBot</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
         
         body {
-            background-color: #111;
-            color: #0f0;
-            font-family: 'Press Start 2P', monospace;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-            user-select: none;
-            touch-action: manipulation;
-        }
-        .container {
-            max-width: 400px;
-            margin: 0 auto;
-            border: 4px solid #0f0;
-            padding: 15px;
-            background: #000;
-            box-shadow: 0 0 15px #0f0;
-        }
-        h1 {
-            font-size: 16px;
+            background-color: #000;
             color: #fff;
-            text-shadow: 2px 2px #f00;
-            margin-bottom: 20px;
+            font-family: 'VT323', monospace;
+            margin: 0; padding: 0;
+            height: 100vh; width: 100vw;
+            display: flex; flex-direction: column;
+            overflow: hidden; user-select: none;
         }
-        .hp-bar {
-            width: 100%;
-            height: 20px;
-            border: 2px solid #fff;
-            margin: 10px 0;
-            background: #333;
+
+        /* Верхняя часть (Враг) */
+        .top-half {
+            height: 50%;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            border-bottom: 4px solid #fff;
             position: relative;
         }
-        .hp-fill {
-            height: 100%;
-            background: #f00;
-            width: 100%;
-            transition: width 0.3s;
+
+        .enemy-sprite {
+            width: 120px; height: 120px;
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            image-rendering: pixelated;
+            transition: transform 0.1s;
         }
-        .stats {
-            font-size: 10px;
-            margin: 15px 0;
-            line-height: 1.8;
+
+        .enemy-hp {
+            position: absolute; bottom: 20px;
+            width: 200px; height: 15px;
+            background: #330000; border: 2px solid #fff;
+            border-radius: 10px; overflow: hidden;
         }
-        button {
-            font-family: 'Press Start 2P', monospace;
+        .enemy-hp-fill {
+            height: 100%; background: #00ff00; width: 100%;
+            transition: width 0.2s;
+        }
+
+        /* Нижняя часть (Битва) */
+        .bottom-half {
+            height: 50%;
+            padding: 10px;
+            box-sizing: border-box;
+            display: flex; flex-direction: column;
+            justify-content: space-between;
             background: #000;
-            color: #0f0;
-            border: 2px solid #0f0;
-            padding: 15px 20px;
-            margin: 10px 0;
-            width: 100%;
-            font-size: 12px;
+        }
+
+        .dialogue-box {
+            font-size: 24px;
+            text-align: center;
+            min-height: 60px;
+            padding: 10px;
+            text-shadow: 2px 2px #555;
+        }
+
+        /* Зона с душой (уворот) */
+        .bullet-board {
+            width: 100%; height: 120px;
+            border: 4px solid #fff;
+            position: relative;
+            background: #000;
+            display: none;
+        }
+        .soul {
+            width: 16px; height: 16px;
+            background: #ff0000;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            clip-path: polygon(50% 0%, 100% 35%, 80% 100%, 50% 80%, 20% 100%, 0% 35%);
+        }
+
+        /* Кнопки */
+        .actions {
+            display: flex; justify-content: space-between;
+            margin-top: 10px;
+        }
+        .btn {
+            font-family: 'VT323', monospace;
+            font-size: 20px;
+            color: #ffa500;
+            background: #000;
+            border: 2px solid #ffa500;
+            padding: 10px;
+            width: 22%;
+            text-align: center;
             cursor: pointer;
-            transition: all 0.1s;
         }
-        button:active {
-            background: #0f0;
-            color: #000;
-            transform: scale(0.95);
-        }
-        #log {
-            font-size: 10px;
-            color: #aaa;
-            height: 80px;
-            overflow-y: auto;
-            margin-top: 15px;
-            text-align: left;
-            border-top: 1px dashed #555;
-            padding-top: 10px;
+        .btn:active {
+            background: #ffa500; color: #000;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>⚔️ PIXEL DUNGEON ⚔️</h1>
+    <div class="top-half">
+        <div class="enemy-sprite" id="enemy-img"></div>
+        <div class="enemy-hp"><div class="enemy-hp-fill" id="e-hp-fill"></div></div>
+    </div>
+
+    <div class="bottom-half">
+        <div class="dialogue-box" id="dialogue">* Волк преграждает тебе путь!</div>
         
-        <div class="stats">
-            Уровень: <span id="lvl">1</span><br>
-            Урон: <span id="dmg">10</span><br>
-            Монеты: <span id="gold">0</span>
+        <!-- Зона уворота -->
+        <div class="bullet-board" id="bullet-board">
+            <div class="soul" id="soul"></div>
         </div>
 
-        <div class="hp-bar">
-            <div class="hp-fill" id="hp-fill" style="width: 100%;"></div>
-        </div>
-        <div style="font-size: 10px; margin-bottom: 10px;">HP: <span id="hp-text">100/100</span></div>
-
-        <div id="log">Нажми "В бой", чтобы начать...</div>
-
-        <div id="actions">
-            <button onclick="startBattle()">⚔️ В БОЙ</button>
-        </div>
-        
-        <div id="battle-actions" style="display: none;">
-            <button onclick="attack()">⚔️ АТАКА</button>
-            <button onclick="heal()">🧪 ЗЕЛЬЕ</button>
+        <!-- Меню действий -->
+        <div class="actions" id="actions">
+            <div class="btn" onclick="attack()">FIGHT</div>
+            <div class="btn" onclick="act()">ACT</div>
+            <div class="btn" onclick="item()">ITEM</div>
+            <div class="btn" onclick="mercy()">MERCY</div>
         </div>
     </div>
 
     <script>
-        // Игровые переменные
-        let player = {
-            lvl: 1, dmg: 10, gold: 0,
-            hp: 100, maxHp: 100
-        };
-        let enemy = { hp: 0, maxHp: 0, dmg: 0 };
-        let inBattle = false;
+        // Игрок
+        let player = { hp: 100, maxHp: 100, dmg: 15, gold: 0 };
+        // Враг
+        let enemy = { name: "Волк", hp: 60, maxHp: 60, img: "wolf.png" };
+        
+        let turn = 0; // 0 - меню, 1 - анимация врага
+        let soulPos = { x: 50, y: 50 }; // В процентах
+        let bullets = [];
 
-        const logEl = document.getElementById('log');
+        const soulEl = document.getElementById('soul');
+        const boardEl = document.getElementById('bullet-board');
+        const dialogueEl = document.getElementById('dialogue');
+
+        // Инициализация боя
+        function startBattle() {
+            enemy.hp = enemy.maxHp;
+            document.getElementById('enemy-img').style.backgroundImage = `url('${enemy.img}')`;
+            document.getElementById('e-hp-fill').style.width = '100%';
+            updateUI();
+            dialogueEl.innerText = `* ${enemy.name} преграждает тебе путь!`;
+            
+            // Показываем меню
+            document.getElementById('actions').style.display = 'flex';
+            boardEl.style.display = 'none';
+            turn = 0;
+        }
 
         function updateUI() {
-            document.getElementById('lvl').innerText = player.lvl;
-            document.getElementById('dmg').innerText = player.dmg;
-            document.getElementById('gold').innerText = player.gold;
-            
-            let hpPercent = (player.hp / player.maxHp) * 100;
-            document.getElementById('hp-fill').style.width = hpPercent + '%';
-            document.getElementById('hp-text').innerText = player.hp + '/' + player.maxHp;
-            
-            // Меняем цвет, если мало HP
-            if (hpPercent < 30) {
-                document.getElementById('hp-fill').style.background = '#f00';
-            } else {
-                document.getElementById('hp-fill').style.background = '#0f0';
-            }
+            document.getElementById('e-hp-fill').style.width = (enemy.hp / enemy.maxHp * 100) + '%';
+            document.getElementById('e-hp-fill').style.background = (enemy.hp / enemy.maxHp) < 0.3 ? '#ff0000' : '#00ff00';
         }
 
-        function addLog(text) {
-            logEl.innerHTML = text + '<br>' + logEl.innerHTML;
-            if (logEl.innerHTML.length > 500) logEl.innerHTML = logEl.innerHTML.substring(0, 500);
-        }
-
-        function startBattle() {
-            inBattle = true;
-            enemy.maxHp = 50 + (player.lvl * 20);
-            enemy.hp = enemy.maxHp;
-            enemy.dmg = 5 + (player.lvl * 2);
-            
-            document.getElementById('actions').style.display = 'none';
-            document.getElementById('battle-actions').style.display = 'block';
-            addLog(`Появился враг! HP: ${enemy.hp}`);
-            updateUI();
-        }
-
+        // Кнопка FIGHT
         function attack() {
-            if (!inBattle) return;
-            
-            // Игрок бьет
-            let crit = Math.random() < 0.2;
-            let dmg = player.dmg * (crit ? 3 : 1);
+            let dmg = player.dmg + Math.floor(Math.random() * 5);
             enemy.hp -= dmg;
-            addLog(`Ты ударил на ${dmg} ${crit ? '(КРИТ!)' : ''}`);
-
-            if (enemy.hp <= 0) {
-                // Победа
-                let reward = 20 * player.lvl;
-                player.gold += reward;
-                addLog(`Враг убит! +${reward} монет.`);
-                inBattle = false;
-                document.getElementById('actions').style.display = 'block';
-                document.getElementById('battle-actions').style.display = 'none';
-                
-                // Прокачка
-                if (player.gold >= player.lvl * 50) {
-                    player.lvl++;
-                    player.dmg += 5;
-                    player.maxHp += 20;
-                    player.hp = player.maxHp;
-                    addLog(`🏆 УРОВЕНЬ ПОВЫШЕН! Теперь урон ${player.dmg}`);
-                }
-            } else {
-                // Враг бьет
-                player.hp -= enemy.dmg;
-                addLog(`Враг ударил на ${enemy.dmg}`);
-                if (player.hp <= 0) {
-                    player.hp = 1;
-                    player.gold = Math.max(0, player.gold - 20);
-                    inBattle = false;
-                    addLog(`💀 Ты проиграл! Потерял 20 монет.`);
-                    document.getElementById('actions').style.display = 'block';
-                    document.getElementById('battle-actions').style.display = 'none';
-                }
-            }
             updateUI();
-        }
-
-        function heal() {
-            if (player.gold >= 30) {
-                player.gold -= 30;
-                player.hp = Math.min(player.maxHp, player.hp + 50);
-                addLog(`🧪 Выпил зелье (+50 HP). -30 монет.`);
-                updateUI();
+            dialogueEl.innerText = `* Ты ударил на ${dmg} урона!`;
+            
+            if (enemy.hp <= 0) {
+                dialogueEl.innerText = "* Ты победил!";
+                setTimeout(startBattle, 2000);
             } else {
-                addLog(`❌ Не хватает монет на зелье (нужно 30).`);
+                startDodge();
             }
         }
 
-        // Инициализация Telegram Web App
+        // Кнопка ACT
+        function act() {
+            dialogueEl.innerText = "* Ты рычишь на волка. Он смущен.";
+            startDodge();
+        }
+
+        // Кнопка ITEM
+        function item() {
+            dialogueEl.innerText = "* У тебя нет предметов.";
+            setTimeout(() => dialogueEl.innerText = "* Волк преграждает тебе путь!", 1500);
+        }
+
+        // Кнопка MERCY
+        function mercy() {
+            if (enemy.hp < enemy.maxHp * 0.2) {
+                dialogueEl.innerText = "* Ты пощадил волка. Он убежал.";
+                setTimeout(startBattle, 2000);
+            } else {
+                dialogueEl.innerText = "* Волк не хочет сдаваться.";
+                setTimeout(() => dialogueEl.innerText = "* Волк преграждает тебе путь!", 1500);
+            }
+        }
+
+        // Фаза уворота (как в Undertale)
+        function startDodge() {
+            document.getElementById('actions').style.display = 'none';
+            boardEl.style.display = 'block';
+            dialogueEl.innerText = "* Уклоняйся от атак! Води пальцем.";
+            
+            // Спавним атаки
+            let attackInterval = setInterval(() => {
+                let b = document.createElement('div');
+                b.className = 'bullet';
+                b.style.width = '10px'; b.style.height = '10px';
+                b.style.background = '#fff'; b.style.position = 'absolute';
+                b.style.borderRadius = '50%';
+                
+                let startX = Math.random() > 0.5 ? 0 : 100;
+                let startY = Math.random() * 100;
+                b.style.left = startX + '%';
+                b.style.top = startY + '%';
+                boardEl.appendChild(b);
+                
+                let speedX = startX === 0 ? 1 : -1;
+                let speedY = (Math.random() - 0.5) * 2;
+                
+                let moveInterval = setInterval(() => {
+                    let x = parseFloat(b.style.left);
+                    let y = parseFloat(b.style.top);
+                    b.style.left = (x + speedX) + '%';
+                    b.style.top = (y + speedY) + '%';
+                    
+                    // Проверка на попадание
+                    let soulRect = soulEl.getBoundingClientRect();
+                    let bRect = b.getBoundingClientRect();
+                    if (soulRect.left < bRect.right && soulRect.right > bRect.left &&
+                        soulRect.top < bRect.bottom && soulRect.bottom > bRect.top) {
+                        player.hp -= 10;
+                        dialogueEl.innerText = "* Ты получил урон!";
+                        b.remove();
+                        clearInterval(moveInterval);
+                    }
+                    
+                    if (x < -10 || x > 110 || y < -10 || y > 110) {
+                        b.remove();
+                        clearInterval(moveInterval);
+                    }
+                }, 50);
+            }, 500);
+
+            // Заканчиваем фазу через 5 секунд
+            setTimeout(() => {
+                clearInterval(attackInterval);
+                document.querySelectorAll('.bullet').forEach(el => el.remove());
+                boardEl.style.display = 'none';
+                document.getElementById('actions').style.display = 'flex';
+                dialogueEl.innerText = "* Твой ход!";
+                
+                if (player.hp <= 0) {
+                    dialogueEl.innerText = "* Ты проиграл... Перезагрузка...";
+                    setTimeout(() => { player.hp = player.maxHp; startBattle(); }, 2000);
+                }
+            }, 5000);
+        }
+
+        // Управление душой (перетаскивание пальцем)
+        boardEl.addEventListener('mousemove', moveSoul);
+        boardEl.addEventListener('touchmove', moveSoul);
+
+        function moveSoul(e) {
+            if (boardEl.style.display === 'none') return;
+            let rect = boardEl.getBoundingClientRect();
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            let x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+            let y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+            
+            soulEl.style.left = (x - 8) + 'px';
+            soulEl.style.top = (y - 8) + 'px';
+        }
+
+        // Запуск
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
         }
-        
-        updateUI();
+        startBattle();
     </script>
 </body>
 </html>
