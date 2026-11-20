@@ -22,69 +22,86 @@
         }
         .hud {
             display: flex; justify-content: space-between;
-            font-size: 10px; color: #ffcc00; margin-bottom: 10px;
+            font-size: 8px; color: #ffcc00; margin-bottom: 5px;
         }
         
-        /* Зона с врагом */
         .enemy-area {
-            height: 160px; border: 2px solid #333; background: #000;
+            height: 150px; border: 2px solid #333; background: #000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             margin-bottom: 10px; position: relative; overflow: hidden;
             background-image: url('bg.jpg'); background-size: cover; background-position: center;
         }
-        /* Затемнение фона, чтобы враг выделялся */
         .enemy-area::before {
             content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.4); z-index: 0;
+            background: rgba(0,0,0,0.5); z-index: 0;
         }
         .enemy-sprite {
-            width: 120px; height: 120px;
+            width: 110px; height: 110px;
             background-size: contain; background-repeat: no-repeat; background-position: center;
             image-rendering: pixelated; margin-bottom: 5px; z-index: 1;
+            transition: opacity 0.3s, transform 0.1s;
         }
-        .hp-bar { width: 80%; height: 12px; border: 2px solid #fff; background: #333; border-radius: 4px; z-index: 1;}
+        .hp-bar { width: 80%; height: 10px; border: 2px solid #fff; background: #333; z-index: 1;}
         .hp-fill { height: 100%; background: #ff3333; width: 100%; transition: width 0.3s; }
-        #enemy-name { z-index: 1; text-shadow: 1px 1px 2px #000; }
+        #enemy-name { z-index: 1; text-shadow: 1px 1px 2px #000; font-size: 8px; margin-bottom: 5px;}
         
-        /* Зона с игроком */
         .player-area {
             display: flex; align-items: center; justify-content: space-around;
             border-top: 2px dashed #555; padding-top: 10px; margin-bottom: 10px;
         }
         .player-sprite {
-            width: 60px; height: 60px;
+            width: 50px; height: 50px;
             background-image: url('knight.png'); background-size: contain; background-repeat: no-repeat;
             image-rendering: pixelated;
         }
-        .stats { font-size: 8px; color: #fff; line-height: 1.8; text-align: left;}
-        .energy-bar { width: 100px; height: 8px; border: 1px solid #00ffcc; background: #333; margin-top: 2px;}
+        .stats { font-size: 7px; color: #fff; line-height: 1.8; text-align: left;}
+        .energy-bar { width: 80px; height: 6px; border: 1px solid #00ffcc; background: #333; margin-top: 2px;}
         .energy-fill { height: 100%; background: #00ffcc; width: 100%; transition: width 0.2s;}
         
-        .log { font-size: 8px; color: #aaa; height: 30px; text-align: center; margin-bottom: 10px; }
+        .log { font-size: 8px; color: #aaa; height: 40px; text-align: center; margin-bottom: 10px; line-height: 1.4; }
 
         button {
             font-family: 'Press Start 2P', monospace;
             background: #222; color: #fff; border: 2px solid #777;
-            padding: 12px; width: 100%; margin-bottom: 5px;
-            font-size: 10px; cursor: pointer; border-radius: 4px;
+            padding: 10px; width: 100%; margin-bottom: 5px;
+            font-size: 8px; cursor: pointer; border-radius: 4px;
+            transition: opacity 0.2s;
         }
-        button:active { background: #555; transform: scale(0.98); }
-        button:disabled { color: #555; border-color: #333; background: #111; }
+        button:active:not(:disabled) { background: #555; transform: scale(0.98); }
+        button:disabled { color: #555; border-color: #333; background: #111; cursor: not-allowed; }
         
         .btn-rest { background: #003300; border-color: #00ff00; }
+        .btn-rest:disabled { background: #111; border-color: #333; }
         .btn-boss { background: #330000; border-color: #ff0000; }
+        .btn-inv { background: #333300; border-color: #ffff00; }
+
+        /* Модальное окно инвентаря */
+        .inventory-modal {
+            display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.95); z-index: 100; padding: 20px;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        .inventory-list { width: 100%; max-height: 200px; overflow-y: auto; margin-bottom: 10px; text-align: left;}
+        .inv-item { font-size: 8px; padding: 5px; border-bottom: 1px solid #333; color: #00ffcc; }
     </style>
 </head>
 <body>
     <div class="game-container">
+        <!-- Инвентарь (скрыт по умолчанию) -->
+        <div class="inventory-modal" id="inv-modal">
+            <h2 style="color: #ffcc00; font-size: 12px;">🎒 РЮКЗАК</h2>
+            <div class="inventory-list" id="inv-list"></div>
+            <button onclick="closeInventory()">ЗАКРЫТЬ</button>
+        </div>
+
         <div class="hud">
+            <div id="floor-name">Пещера Смерти</div>
             <div>Этаж: <span id="floor">1</span></div>
-            <div>Сложность: <span id="diff">1</span></div>
         </div>
 
         <div class="enemy-area">
             <div class="enemy-sprite" id="enemy-img"></div>
-            <div style="font-size:8px; margin-bottom:2px;" id="enemy-name">Гоблин</div>
+            <div id="enemy-name">Гоблин</div>
             <div class="hp-bar"><div class="hp-fill" id="e-hp-fill"></div></div>
         </div>
 
@@ -103,149 +120,243 @@
         <button id="btn-attack" onclick="attack()">⚔️ АТАКА (-10 ⚡)</button>
         <button id="btn-rest" class="btn-rest" onclick="rest()">🛌 ОТДОХНУТЬ (+30 ⚡, враг бьет)</button>
         <button id="btn-next" class="btn-boss" style="display:none;" onclick="nextFloor()">🚪 СПУСТИТЬСЯ НИЖЕ</button>
+        <button class="btn-inv" onclick="openInventory()">🎒 ИНВЕНТАРЬ</button>
     </div>
 
     <script>
         let game = {
             floor: 1,
-            diff: 1,
             kills: 0,
             hp: 100, maxHp: 100,
             energy: 100,
-            dmg: 10, gold: 0
+            baseDmg: 10, bonusDmg: 0,
+            gold: 0,
+            inventory: []
         };
 
         let enemy = { name: '', hp: 0, maxHp: 0, dmg: 0, img: '' };
+        let isBossFight = false;
+        let isTransitioning = false; // Защита от спама кнопок во время смерти врага
+
+        const floorNames = [
+            "Пещера Смерти", 
+            "Сырые Катакомбы", 
+            "Скопление Костей", 
+            "Пещеры Слизи", 
+            "Логово Гоблинов", 
+            "Костлявый Зал"
+        ];
 
         const enemyTypes = [
             { name: 'Гоблин', img: 'goblin.png', hp: 30, dmg: 5 },
             { name: 'Скелет', img: 'skeleton.png', hp: 40, dmg: 8 },
-            { name: 'Слизь', img: 'slime.png', hp: 20, dmg: 3 }
+            { name: 'Слизь', img: 'slime.png', hp: 20, dmg: 3 },
+            { name: 'Мимик', img: 'mimic.png', hp: 60, dmg: 12 }
         ];
 
+        const bosses = {
+            5: { name: '👑 Король Слизей', img: 'slime.png', hp: 300, dmg: 20 },
+            10: { name: '👑 Скелетный Предводитель', img: 'skeleton.png', hp: 500, dmg: 30 },
+            15: { name: '👑 Генерал Гоблинов', img: 'goblin.png', hp: 800, dmg: 45 }
+        };
+
+        function getTotalDmg() { return game.baseDmg + game.bonusDmg; }
+
         function updateUI() {
+            let fIndex = (game.floor - 1) % floorNames.length;
+            document.getElementById('floor-name').innerText = floorNames[fIndex];
             document.getElementById('floor').innerText = game.floor;
-            document.getElementById('diff').innerText = game.diff;
+            
             document.getElementById('hp').innerText = game.hp;
             document.getElementById('max-hp').innerText = game.maxHp;
             document.getElementById('energy').innerText = game.energy;
-            document.getElementById('dmg').innerText = game.dmg;
+            document.getElementById('dmg').innerText = getTotalDmg();
             document.getElementById('gold').innerText = game.gold;
             
             document.getElementById('e-energy-fill').style.width = Math.max(0, game.energy) + '%';
-            document.getElementById('e-hp-fill').style.width = (enemy.hp / enemy.maxHp * 100) + '%';
+            
+            // Защита от деления на ноль и отрицательного HP
+            let hpPercent = enemy.maxHp > 0 ? (enemy.hp / enemy.maxHp * 100) : 0;
+            document.getElementById('e-hp-fill').style.width = Math.max(0, Math.min(100, hpPercent)) + '%';
 
-            if (game.energy < 15) {
-                document.getElementById('btn-attack').disabled = true;
-                document.getElementById('log').innerText = "Ты слишком устал! Отдохни.";
+            // Блокировка кнопок
+            const btnAttack = document.getElementById('btn-attack');
+            const btnRest = document.getElementById('btn-rest');
+
+            if (game.energy < 10 || enemy.hp <= 0 || isTransitioning) {
+                btnAttack.disabled = true;
             } else {
-                document.getElementById('btn-attack').disabled = false;
+                btnAttack.disabled = false;
+            }
+
+            // Блокируем отдых, если энергия полная, враг мертв или идет переход
+            if (game.energy >= 100 || enemy.hp <= 0 || isTransitioning) {
+                btnRest.disabled = true;
+            } else {
+                btnRest.disabled = false;
             }
         }
 
         function spawnEnemy() {
-            let template = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
-            enemy.name = template.name;
-            enemy.img = template.img;
-            enemy.maxHp = template.hp + (game.diff * 10);
-            enemy.hp = enemy.maxHp;
-            enemy.dmg = template.dmg + (game.diff * 2);
+            isTransitioning = false;
+            
+            if (game.floor % 5 === 0 && game.kills === 0 && bosses[game.floor]) {
+                isBossFight = true;
+                let b = bosses[game.floor];
+                enemy.name = b.name;
+                enemy.img = b.img;
+                enemy.maxHp = b.hp;
+                enemy.hp = b.hp;
+                enemy.dmg = b.dmg;
+                document.getElementById('log').innerText = `⚠️ БОСС: ${b.name}!`;
+            } else {
+                isBossFight = false;
+                let template = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+                enemy.name = template.name;
+                enemy.img = template.img;
+                enemy.maxHp = template.hp + (game.floor * 5);
+                enemy.hp = enemy.maxHp;
+                enemy.dmg = template.dmg + (game.floor * 2);
+                // Правильное склонение для Слизи
+                let nameText = enemy.name === 'Слизь' ? 'Появилась Слизь!' : `Появился ${enemy.name}!`;
+                document.getElementById('log').innerText = nameText;
+            }
 
-            document.getElementById('enemy-img').style.backgroundImage = `url('${enemy.img}')`;
+            const imgEl = document.getElementById('enemy-img');
+            imgEl.style.backgroundImage = `url('${enemy.img}')`;
+            imgEl.style.opacity = '1';
+            imgEl.style.transform = 'translateX(0)';
+            
             document.getElementById('enemy-name').innerText = enemy.name;
             document.getElementById('btn-next').style.display = 'none';
             document.getElementById('btn-attack').style.display = 'block';
             document.getElementById('btn-rest').style.display = 'block';
-            document.getElementById('log').innerText = `Появился ${enemy.name}!`;
             updateUI();
         }
 
         function attack() {
-            if (game.energy < 10) return;
+            if (game.energy < 10 || enemy.hp <= 0 || isTransitioning) return;
             
             game.energy -= 10;
             let crit = Math.random() < 0.2;
-            let damage = game.dmg * (crit ? 3 : 1);
-            enemy.hp -= damage;
+            let damage = getTotalDmg() * (crit ? 3 : 1);
             
-            let logText = `Ты ударил на ${damage} ${crit ? '(КРИТ!)' : ''}. `;
-            document.getElementById('log').innerText = logText;
+            // Защита от отрицательного HP
+            enemy.hp = Math.max(0, enemy.hp - damage);
+            
+            document.getElementById('log').innerText = `Ты ударил на ${damage} ${crit ? '(КРИТ!)' : ''}.`;
 
             const imgEl = document.getElementById('enemy-img');
             imgEl.style.transform = 'translateX(5px)';
             setTimeout(() => imgEl.style.transform = 'translateX(0)', 100);
 
             if (enemy.hp <= 0) {
+                isTransitioning = true;
                 game.kills++;
-                let reward = 10 + (game.diff * 5);
-                game.gold += reward;
-                document.getElementById('log').innerText = `Враг убит! +${reward} монет. (${game.kills}/5)`;
-                document.getElementById('enemy-img').style.backgroundImage = 'none'; 
+                let reward = isBossFight ? 500 : (10 + (game.floor * 5));
+                if (enemy.name === 'Мимик') reward *= 2;
                 
-                if (game.kills >= 5) {
+                game.gold += reward;
+                document.getElementById('log').innerText = `Враг убит! +${reward} монет.`;
+                imgEl.style.opacity = '0'; // Плавно убираем спрайт
+                
+                if (isBossFight) {
+                    setTimeout(nextFloor, 1500);
+                } else if (game.kills >= 5) {
                     document.getElementById('btn-attack').style.display = 'none';
                     document.getElementById('btn-rest').style.display = 'none';
                     document.getElementById('btn-next').style.display = 'block';
-                    document.getElementById('log').innerText = "Этаж зачищен! Найди люк и спускайся.";
+                    document.getElementById('log').innerText = "Этаж зачищен! Ищи люк.";
+                    isTransitioning = false;
                 } else {
                     setTimeout(spawnEnemy, 1000);
                 }
             } else {
                 game.hp -= enemy.dmg;
                 document.getElementById('log').innerText += ` Враг ударил на ${enemy.dmg}.`;
-                
-                if (game.hp <= 0) gameOver();
+                if (game.hp <= 0) {
+                    gameOver();
+                    return;
+                }
             }
             updateUI();
         }
 
         function rest() {
-            game.energy = Math.min(100, game.energy + 30);
+            if (enemy.hp <= 0 || isTransitioning || game.energy >= 100) return;
+
+            let healed = Math.min(30, 100 - game.energy);
+            game.energy += healed;
             game.hp -= enemy.dmg;
-            document.getElementById('log').innerText = `Ты отдохнул (+30 ⚡). Но ${enemy.name} ударил тебя на ${enemy.dmg}.`;
             
-            if (game.hp <= 0) gameOver();
+            document.getElementById('log').innerText = `Ты отдохнул (+${healed} ⚡). Но враг ударил на ${enemy.dmg}.`;
+            
+            if (game.hp <= 0) {
+                gameOver();
+                return;
+            }
             updateUI();
         }
 
         function nextFloor() {
             game.floor++;
-            game.diff = game.floor;
             game.kills = 0;
+            isTransitioning = false;
             
-            let lootType = Math.floor(Math.random() * 3);
-            let lootText = "";
+            let lootTypes = [
+                { name: "Ржавый клинок", type: "dmg", val: 2 },
+                { name: "Стальной меч", type: "dmg", val: 5 },
+                { name: "Кожаный доспех", type: "hp", val: 15 },
+                { name: "Кольчуга", type: "hp", val: 30 }
+            ];
+            let loot = lootTypes[Math.floor(Math.random() * lootTypes.length)];
             
-            if (lootType === 0) {
-                game.dmg += 2;
-                lootText = "🗡 Ты нашел Меч! +2 Урона.";
-            } else if (lootType === 1) {
-                game.maxHp += 10;
-                game.hp = game.maxHp;
-                lootText = "🛡 Ты нашел Броню! +10 Макс. HP.";
-            } else {
-                game.energy = 100;
-                lootText = "🎒 Ты нашел Рюкзак! Энергия восстановлена.";
-            }
+            game.inventory.push(loot.name);
             
+            if (loot.type === "dmg") game.bonusDmg += loot.val;
+            if (loot.type === "hp") { game.maxHp += loot.val; game.hp += loot.val; }
+
             game.hp += 10;
             if (game.hp > game.maxHp) game.hp = game.maxHp;
             
-            document.getElementById('log').innerText = `Ты спустился на Этаж ${game.floor}.\n${lootText}`;
             spawnEnemy();
+            document.getElementById('log').innerText += `\nНайдено: ${loot.name}.`; // Лог лута не перезаписывается
+        }
+
+        function openInventory() {
+            document.getElementById('inv-modal').style.display = 'flex';
+            let list = document.getElementById('inv-list');
+            list.innerHTML = "";
+            if (game.inventory.length === 0) {
+                list.innerHTML = "<div class='inv-item'>Пусто...</div>";
+            } else {
+                game.inventory.forEach(item => {
+                    list.innerHTML += `<div class='inv-item'>- ${item}</div>`;
+                });
+            }
+        }
+
+        function closeInventory() {
+            document.getElementById('inv-modal').style.display = 'none';
         }
 
         function gameOver() {
+            isTransitioning = true;
             game.hp = game.maxHp;
             game.energy = 100;
             game.floor = 1;
-            game.diff = 1;
             game.kills = 0;
             game.gold = 0;
-            game.dmg = 10;
+            game.bonusDmg = 0;
             game.maxHp = 100;
+            game.inventory = [];
+            enemy.hp = 0; // Чтобы кнопки не работали
+            
             document.getElementById('log').innerText = "💀 Ты умер! Начинаем заново.";
-            spawnEnemy();
+            
+            setTimeout(() => {
+                spawnEnemy();
+            }, 1500);
         }
 
         if (window.Telegram && window.Telegram.WebApp) {
